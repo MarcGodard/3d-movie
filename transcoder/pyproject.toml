@@ -1,0 +1,44 @@
+[project]
+name = "transcoder"
+version = "0.1.0"
+description = "SBS 3D movie to packed color+depth (P3D1) transcoder"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2",
+    "opencv-contrib-python==4.13.0.92",
+]
+
+[project.optional-dependencies]
+ml = [
+    "torch==2.7.1",
+    "torchvision==0.22.1",
+    "opt-einsum>=3.3",  # RAFT-Stereo update block
+    "scipy>=1.14",      # RAFT-Stereo utils
+]
+
+[project.scripts]
+transcode3d = "transcoder.cli:main"
+preview3d = "transcoder.preview:main"
+
+[tool.uv]
+# Pascal (sm_61) support ends at torch 2.7.x. Keep cu126 index.
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+torchvision = { index = "pytorch-cu126" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/transcoder"]

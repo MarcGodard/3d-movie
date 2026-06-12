@@ -1,0 +1,26 @@
+# Movies, clips, transcoder output — never commit media
+media/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Model weights + vendored RAFT-Stereo (fetched by scripts/setup.sh)
+transcoder/models/
+transcoder/third_party/
+*.pth
+
+# Android
+app/.gradle/
+app/build/
+app/app/build/
+app/local.properties
+*.apk
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

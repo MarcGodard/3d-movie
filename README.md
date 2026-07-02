@@ -53,6 +53,36 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 Copy the `.p3d.mp4` and its `.p3d.json` sidecar to the tablet, pick the folder in the app.
 
+## Testing
+
+**Desktop** (no tablet needed, webcam drives head parallax, mouse if no webcam):
+
+```bash
+cd transcoder
+uv run preview3d ../media/despicable.p3d.mp4      # or any packed .p3d.mp4
+```
+
+Keys: `q` quit, `space` pause, `[`/`]` strength, `f` freeze face (mouse drives instead).
+
+**Mobile** — needs a real Android tablet (10+, front camera + gyro). An emulator can
+check the build/UI but has no real camera or gyro, so it can't test the actual
+parallax feel.
+
+```bash
+# tablet: enable developer mode + USB debugging, plug in, then confirm:
+adb devices
+
+cd app
+./gradlew assembleDebug
+adb install -r app/app/build/outputs/apk/debug/app-debug.apk
+
+# push a test clip + its sidecar json
+adb push ../media/despicable.p3d.mp4 /sdcard/Movies/
+adb push ../media/despicable.p3d.p3d.json /sdcard/Movies/
+```
+
+Open the app, pick that folder, play.
+
 ## Requirements
 
 - **Transcoder:** Linux, Python 3.13 ([uv](https://docs.astral.sh/uv/)), ffmpeg 7+, NVIDIA GPU (developed on a GTX 1080; PyTorch is pinned to 2.7.1, the last release line supporting Pascal).

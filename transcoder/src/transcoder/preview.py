@@ -1,13 +1,16 @@
 """Desktop parallax preview: packed .p3d.mp4 + webcam face tracking.
 
 Same depth-warp math as the Android app, native OpenCV window. Tests the
-parallax feel without a tablet. No audio (preview tool, not a player).
+parallax feel without a tablet. Audio via ffplay sidecar; video paces to
+wall clock so A/V stays in sync.
 
 Keys: q quit, space pause, [/] strength, f freeze head (mouse drives instead).
 """
 
 import argparse
 import json
+import shutil
+import subprocess
 import time
 import urllib.request
 from pathlib import Path
@@ -29,6 +32,35 @@ def _load_detector(size: tuple[int, int]):
         print(f"downloading face detector -> {_YUNET_PATH}")
         urllib.request.urlretrieve(_YUNET_URL, _YUNET_PATH)
     return cv2.FaceDetectorYN.create(str(_YUNET_PATH), "", size, 0.6)
+
+
+class AudioPlayer:
+    """ffplay sidecar. OpenCV has no audio path; video paces to wall clock."""
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+        self.proc: subprocess.Popen | None = None
+        self.available = shutil.which("ffplay") is not None
+        if not self.available:
+            print("ffplay not found; preview stays silent")
+
+    def start(self, pos_sec: float = 0.0) -> None:
+        if not self.available:
+            return
+        self.stop()
+        self.proc = subprocess.Popen(
+            ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
+             "-vn", "-ss", f"{pos_sec:.3f}", "-i", self.path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def stop(self) -> None:
+        if self.proc is not None:
+            self.proc.terminate()
+            try:
+                self.proc.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+            self.proc = None
 
 
 class HeadSmoother:
@@ -57,7 +89,7 @@ def warp(color: np.ndarray, depth01: np.ndarray, off_x: float, off_y: float,
     # consistent hit wins, so foreground always occludes.
     # (Fixed-point iteration was tried earlier and reverted: diverges at edges.)
     ox = np.float32(off_x)
-    oy = np.float32(off_y * 0.4)  # vertical subtler, matches app
+    oy = np.float32(off_y)  # vertical damping is the caller's call
     shift = (depth01 - convergence) * np.float32(strength_px)
 
     s_min, s_max = float(shift.min()), float(shift.max())
@@ -90,6 +122,8 @@ def main() -> None:
                    help="display scale of eye video (default 0.5)")
     p.add_argument("--head-gain", type=float, default=3.0,
                    help="face offset amplifier; head moves are small in frame (default 3)")
+    p.add_argument("--vertical", type=float, default=1.0,
+                   help="vertical parallax response 0..1 (default 1.0)")
     args = p.parse_args()
 
     convergence = 0.5
@@ -124,15 +158,22 @@ def main() -> None:
     cv2.setMouseCallback(win, lambda e, x, y, f, _: mouse.__setitem__(
         slice(None), [x, y]) if e == cv2.EVENT_MOUSEMOVE else None)
 
+    audio = AudioPlayer(args.input)
+    audio.start()
     frame = None
     maps = None
-    last = time.monotonic()
+    frame_idx = 0
+    anchor = time.monotonic()  # wall-clock pacing keeps video on the audio
     while True:
         if not paused or frame is None:
             ok, raw = video.read()
             if not ok:
                 video.set(cv2.CAP_PROP_POS_FRAMES, 0)  # loop the clip
+                frame_idx = 0
+                anchor = time.monotonic()
+                audio.start(0.0)
                 continue
+            frame_idx += 1
             half = raw.shape[1] // 2
             scale = args.scale
             size = (int(half * scale), int(raw.shape[0] * scale))
@@ -180,7 +221,7 @@ def main() -> None:
 
         color, depth = frame
         strength_px = strength_pct / 100.0 * color.shape[1]
-        out = warp(color, depth, sx, sy, strength_px, convergence, maps)
+        out = warp(color, depth, sx, sy * args.vertical, strength_px, convergence, maps)
         if inset is not None and out.shape[0] > inset.shape[0] + 10:
             ih, iw = inset.shape[:2]
             out[8:8 + ih, out.shape[1] - iw - 8:out.shape[1] - 8] = inset
@@ -190,14 +231,30 @@ def main() -> None:
                     (0, 255, 0) if face_status == "FACE" else (0, 200, 255), 2)
         cv2.imshow(win, out)
 
-        # Pace to video fps
-        wait = max(1, int((1.0 / fps - (time.monotonic() - last)) * 1000))
+        # Absolute schedule against the anchor: drift-free A/V sync
+        now = time.monotonic()
+        if paused:
+            wait = 30
+        else:
+            target = anchor + frame_idx / fps
+            behind = now - target
+            if behind > 2.0 / fps:
+                # Decode fell behind audio; drop frames to catch up
+                skip = int(behind * fps)
+                for _ in range(skip):
+                    video.grab()
+                frame_idx += skip
+            wait = max(1, int((target - now) * 1000))
         key = cv2.waitKey(wait) & 0xFF
-        last = time.monotonic()
         if key == ord("q"):
             break
         if key == ord(" "):
             paused = not paused
+            if paused:
+                audio.stop()
+            else:
+                anchor = time.monotonic() - frame_idx / fps
+                audio.start(frame_idx / fps)
         if key == ord("]"):
             strength_pct = min(12.0, strength_pct + 0.25)
         if key == ord("["):
@@ -205,6 +262,7 @@ def main() -> None:
         if key == ord("f"):
             freeze_face = not freeze_face
 
+    audio.stop()
     video.release()
     cam.release()
     cv2.destroyAllWindows()

@@ -12,6 +12,9 @@ class HeadPoseFusion {
 
     @Volatile var mode = Mode.FUSED
     @Volatile var faceVisible = false
+    // Gyro/face gains below were tuned for a tablet at arm's length; a phone's smaller
+    // motion needs a boost to reach the same offset range. User-adjustable, not device-detected.
+    @Volatile var sensitivity = 2.5f
 
     // Face offset, normalized ~[-1,1], already One-Euro filtered by FaceTracker.
     @Volatile var faceX = 0f
@@ -65,6 +68,8 @@ class HeadPoseFusion {
             fy = faceLowY
         }
 
-        return Pair((gx + fx).coerceIn(-1f, 1f), (gy + fy).coerceIn(-1f, 1f))
+        return Pair(
+            ((gx + fx) * sensitivity).coerceIn(-1f, 1f),
+            ((gy + fy) * sensitivity).coerceIn(-1f, 1f))
     }
 }

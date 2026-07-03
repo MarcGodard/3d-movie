@@ -5,6 +5,7 @@ media3 = "1.10.0"
 camerax = "1.5.2"
 mlkitFace = "16.1.7"
 appcompat = "1.7.1"
+swiperefresh = "1.1.0"
 
 [libraries]
 media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
@@ -14,6 +15,7 @@ camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = 
 mlkit-face-detection = { module = "com.google.mlkit:face-detection", version.ref = "mlkitFace" }
 appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 documentfile = { module = "androidx.documentfile:documentfile", version = "1.1.0" }
+swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "swiperefresh" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

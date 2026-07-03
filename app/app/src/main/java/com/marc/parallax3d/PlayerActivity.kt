@@ -31,6 +31,7 @@ class PlayerActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_SIDECAR = "sidecar_json"
+        private const val POS_PREFIX = "pos:"
     }
 
     private lateinit var glView: android.opengl.GLSurfaceView
@@ -42,6 +43,7 @@ class PlayerActivity : AppCompatActivity() {
     private var videoSurface: Surface? = null
 
     private val handler = Handler(Looper.getMainLooper())
+    private val prefs by lazy { getSharedPreferences("player", MODE_PRIVATE) }
 
     private val cameraPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -81,6 +83,8 @@ class PlayerActivity : AppCompatActivity() {
         }
         intent.data?.let { uri ->
             player.setMediaItem(MediaItem.fromUri(uri))
+            val savedPos = prefs.getLong(POS_PREFIX + uri, 0L)
+            if (savedPos > 0) player.seekTo(savedPos)
             player.prepare()
             player.playWhenReady = true
         }
@@ -118,13 +122,17 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         val playPause = findViewById<Button>(R.id.playPause)
+        player.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                playPause.text = if (isPlaying) "⏸" else "▶"
+            }
+        })
         playPause.setOnClickListener {
             if (player.isPlaying) {
                 player.pause()
-                playPause.text = "▶"
             } else {
+                if (player.playbackState == Player.STATE_ENDED) player.seekTo(0)
                 player.play()
-                playPause.text = "⏸"
             }
         }
 
@@ -148,8 +156,6 @@ class PlayerActivity : AppCompatActivity() {
             }
         })
 
-        val prefs = getSharedPreferences("player", MODE_PRIVATE)
-
         val strengthBar = findViewById<SeekBar>(R.id.strengthBar)
         strengthBar.progress = prefs.getInt("strength", 42)  // ~2.5% parallax
         renderer.strength = strengthBar.progress / 100f * 0.12f
@@ -159,6 +165,14 @@ class PlayerActivity : AppCompatActivity() {
         })
         findViewById<SeekBar>(R.id.convergenceBar).setOnSeekBarChangeListener(simpleSeek { p ->
             renderer.convergence = p / 100f
+        })
+
+        val sensitivityBar = findViewById<SeekBar>(R.id.sensitivityBar)
+        sensitivityBar.progress = prefs.getInt("sensitivity", 50)
+        fusion.sensitivity = 1f + sensitivityBar.progress / 100f * 3f  // 1x..4x, default 2.5x
+        sensitivityBar.setOnSeekBarChangeListener(simpleSeek { p ->
+            fusion.sensitivity = 1f + p / 100f * 3f
+            prefs.edit().putInt("sensitivity", p).apply()
         })
 
         val modeButton = findViewById<Button>(R.id.modeButton)
@@ -206,9 +220,20 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        saveResumePosition()
         player.pause()
         gyro.stop()
         glView.onPause()
+    }
+
+    private fun saveResumePosition() {
+        val uri = intent.data ?: return
+        val key = POS_PREFIX + uri
+        if (player.playbackState == Player.STATE_ENDED) {
+            prefs.edit().remove(key).apply()
+        } else {
+            prefs.edit().putLong(key, player.currentPosition).apply()
+        }
     }
 
     override fun onDestroy() {

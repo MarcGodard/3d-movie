@@ -5,6 +5,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.view.Surface
+import android.view.WindowManager
 
 /**
  * Tablet tilt -> head-equivalent offset. High-frequency half of the fusion:
@@ -14,7 +16,12 @@ import android.hardware.SensorManager
 class GyroTracker(context: Context) : SensorEventListener {
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val sensor: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR)
+    // Sensor axes are fixed to the device's natural (portrait) orientation; PlayerActivity
+    // is locked landscape, so remap once here or pitch/roll come out swapped.
+    private val displayRotation = (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager)
+        .defaultDisplay.rotation
     private val rotation = FloatArray(9)
+    private val remapped = FloatArray(9)
     private val orientation = FloatArray(3)
 
     // Tilt in radians, landscape-mapped. Read by fusion at render rate.
@@ -30,8 +37,14 @@ class GyroTracker(context: Context) : SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent) {
         SensorManager.getRotationMatrixFromVector(rotation, event.values)
-        // Landscape: remap so pitch/roll match the held orientation
-        SensorManager.getOrientation(rotation, orientation)
+        when (displayRotation) {
+            Surface.ROTATION_90 -> SensorManager.remapCoordinateSystem(
+                rotation, SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X, remapped)
+            Surface.ROTATION_270 -> SensorManager.remapCoordinateSystem(
+                rotation, SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X, remapped)
+            else -> rotation.copyInto(remapped)
+        }
+        SensorManager.getOrientation(remapped, orientation)
         // orientation: [azimuth, pitch, roll]
         tiltY = orientation[1]
         tiltX = orientation[2]

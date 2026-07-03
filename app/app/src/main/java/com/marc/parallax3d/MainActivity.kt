@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
 /** Library: persisted movie folder, lists .p3d.mp4 files, reads sidecars. */
 class MainActivity : AppCompatActivity() {
@@ -58,6 +59,11 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.folderButton).setOnClickListener {
             openFolder.launch(null)
+        }
+
+        findViewById<SwipeRefreshLayout>(R.id.swipeRefresh).setOnRefreshListener {
+            refresh()
+            findViewById<SwipeRefreshLayout>(R.id.swipeRefresh).isRefreshing = false
         }
     }
 

@@ -6,6 +6,7 @@
     <string name="hint">Choose the folder with your .p3d.mp4 movies, or open a single file</string>
     <string name="strength">Depth strength</string>
     <string name="convergence">Screen plane</string>
+    <string name="sensitivity">Sensitivity</string>
     <string name="mode_fused">Mode: face + gyro</string>
     <string name="mode_gyro">Mode: gyro only</string>
     <string name="mode_face">Mode: face only</string>

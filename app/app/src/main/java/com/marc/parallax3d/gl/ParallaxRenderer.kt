@@ -95,7 +95,7 @@ class ParallaxRenderer(
         GLES30.glUniform2f(uScale, sx * overscan, sy * overscan)
 
         val (hx, hy) = headPose.offset()
-        GLES30.glUniform2f(uEyeOffset, hx, hy * 0.4f)  // vertical parallax subtler
+        GLES30.glUniform2f(uEyeOffset, hx, hy * 0.8f)  // vertical parallax subtler, doubled for wide displays
         GLES30.glUniform1f(uStrength, strength)
         GLES30.glUniform1f(uConvergence, convergence)
         GLES30.glUniformMatrix4fv(uWarpStMatrix, 1, false, stMatrix, 0)

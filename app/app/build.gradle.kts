@@ -30,6 +30,7 @@ kotlin {
 dependencies {
     implementation(libs.appcompat)
     implementation(libs.documentfile)
+    implementation(libs.swiperefreshlayout)
     implementation(libs.media3.exoplayer)
     implementation(libs.camera.core)
     implementation(libs.camera.camera2)

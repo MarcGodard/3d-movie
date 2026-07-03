@@ -44,7 +44,7 @@ void main() {
     vUv = aPos;
     // z from depth: near wins at mesh fold-overs (depth test LESS).
     // Without this, background triangles can paint over foreground.
-    gl_Position = vec4(ndc.x, -ndc.y, 0.5 - depth * 0.99, 1.0);
+    gl_Position = vec4(ndc.x, ndc.y, 0.5 - depth * 0.99, 1.0);
 }
 """
 

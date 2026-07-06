@@ -1,0 +1,55 @@
+3D-MOVIE — TABLET TEST HANDOFF
+==============================
+Project: ~/Documents/Github/3d-movie  (public, github.com/MarcGodard/3d-movie)
+Goal: SBS 3D -> parallax 3D for Marc's son (blind in one eye; stereo useless, motion
+parallax = monocular depth cue). Desktop preview confirmed solid. Next: test on tablet.
+
+CURRENT STATE (verified this session)
+- APK built, not stale: app/app/build/outputs/apk/debug/app-debug.apk
+- Toolchain: JDK 17 in ~/.local/java, SDK in ~/Android/sdk, adb at ~/Android/sdk/platform-tools/adb
+- Transcoded media ready in ~/Documents/Github/3d-movie/media/ (gitignored):
+    clip60.raft.mp4 (114M) + clip60.raft.p3d.json   <- test with this first
+    clip60.p3d.mp4 (112M, SGBM) + clip60.p3d.p3d.json
+    despicable.p3d.mp4 (9.7G, full RAFT movie) + despicable.p3d.p3d.json  <- push after clip works
+- No tablet connected yet (adb devices was empty).
+- preview.py: audio (ffplay sidecar) + vertical-response fix DONE, STAGED, NOT committed.
+  Last commit 74ec098 predates audio work. Need explicit per-commit approval before committing.
+
+NEXT STEP — TABLET TEST
+On tablet (one-time): Settings>About>tap Build number x7; Developer options> enable USB
+debugging; plug USB; accept "Allow USB debugging" dialog (check always).
+
+On PC:
+  alias adb=~/Android/sdk/platform-tools/adb
+  adb devices                # confirm tablet listed + authorized
+  cd ~/Documents/Github/3d-movie
+  adb install -r app/app/build/outputs/apk/debug/app-debug.apk
+  adb shell mkdir -p /sdcard/Movies/parallax3d
+  adb push media/clip60.raft.mp4 media/clip60.raft.p3d.json /sdcard/Movies/parallax3d/
+  # after clip works:
+  adb push media/despicable.p3d.mp4 media/despicable.p3d.p3d.json /sdcard/Movies/parallax3d/
+
+In app (parallax3d): grant camera perm; library uses SAF folder picker -> point at
+Movies/parallax3d (reads .p3d.json sidecars); tap clip. Test mode button: GYRO (tilt),
+FACE (head move, tablet still), FUSED (default). Strength slider defaults ~2.5% (son's pref).
+
+WATCH FOR
+- Gyro parallax responsive (<~80ms lag)?
+- Face tracking drives parallax with tablet still?
+- Occlusion: foreground in front of background (depth-tested mesh, Shaders.kt WARP_VERT
+  gl_Position.z = 0.5 - depth*0.99; renderer GL_DEPTH_TEST/GL_LESS).
+- Vertical: ON-DEVICE damped to 40% in ParallaxRenderer.kt:98 (hy * 0.4f), unlike desktop
+  (now full). If son wants more up/down on tablet, one-line bump there.
+
+KEY GOTCHAS (don't relearn)
+- Torch pinned 2.7.1+cu126 (GTX 1080 Pascal; 2.8 dropped sm_61). Functional CUDA check, not arch-list.
+- RAFT one-signed disparity: crop-shift both eyes (raft.py _SHIFT_FRAC=0.065), subtract after.
+- preview warp: occlusion-aware nearest-first march. Fixed-point iteration DIVERGES/melts faces — do NOT retry.
+- Webcams ignore requested capture size; YuNet needs per-frame setInputSize.
+- Vertex shaders can't sample OES reliably -> depth blit to R8 FBO first (never skip).
+- HARD RULE: never git commit/push without explicit per-commit approval (one-shot, scoped).
+- Test movie despicable.* is copyrighted: keep gitignored, never commit.
+
+PENDING
+- preview.py audio+vertical fixes: get user confirm experience, then ask to commit.
+- Tablet A1/A2/A3 on-device test (this next step).
